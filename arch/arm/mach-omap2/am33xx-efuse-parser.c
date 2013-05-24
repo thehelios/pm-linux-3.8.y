@@ -144,7 +144,8 @@ static inline int of_add_opp(struct property *prop, u32 opp_bit)
 
 int am33xx_init_opp_from_efuse(void)
 {
-	int val, ret = 0;
+	int val, len, i, ret = 0;
+	__be32 *dtopval;
 	unsigned long *addr;
 	struct device_node *np;
 	struct property *new_prop;
@@ -176,6 +177,22 @@ int am33xx_init_opp_from_efuse(void)
 		ret |= of_add_opp(new_prop, 1);	/* 500MHz@1.1 */
 		ret |= of_add_opp(new_prop, 2);	/* 600MHz@1.2 */
 		ret |= of_add_opp(new_prop, 3);	/* 720MHz@1.26 */
+		dtopval = (__be32 *) of_get_property(np, new_prop->name, &len);
+		if (len > 0) {
+			for (i = 0; i < len / sizeof(u32); i = i + 2) {
+				if (be32_to_cpup(dtopval + i) ==
+				am335x_avail_opps[EFUSE_OPP_TB_800].freq) {
+					/* 800MHz@1.26 */
+					ret |= of_add_opp(new_prop, EFUSE_OPP_TB_800);
+				} else if (be32_to_cpup(dtopval + i) ==
+				am335x_avail_opps[EFUSE_OPP_NT_1000].freq) {
+					/* 1000MHz@1.325 */
+					ret |= of_add_opp(new_prop, EFUSE_OPP_NT_1000);
+				} else
+					continue;
+			}
+		}
+
 	} else {
 		addr = omap_ctrl_base_get() + AM33XX_CONTROL_EFUSE_SMA;
 		for_each_clear_bit(val, addr, MAX_AVAIL_OPPS)
